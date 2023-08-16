@@ -85,6 +85,7 @@ considered incompatible.
         * [Minor: changing a generic type to a more generic type](#generic-more-generic)
     * Functions
         * [Major: adding/removing function parameters](#fn-change-arity)
+        * [Major: changing the type of a function parameter or return value](#fn-change-type)
         * [Possibly-breaking: introducing a new function type parameter](#fn-generic-new)
         * [Minor: generalizing a function to use generics (supporting original type)](#fn-generalize-compatible)
         * [Major: generalizing a function to use generics with type mismatch](#fn-generalize-mismatch)
@@ -901,6 +902,47 @@ Mitigating strategies:
 * Introduce functions that take a struct argument, where the struct is built
   with the builder pattern. This allows new fields to be added to the struct
   in the future.
+
+
+### Major: changing the type of a function parameter or return value {#fn-change-type}
+
+Changing the types of the parameters of a function or its return value
+from one concrete type to another is a breaking change. Note that this
+may occur when updating a dependency to a new major version, if you
+have functions which take or return types defined by that dependency.
+
+```rust,ignore
+// MAJOR CHANGE
+
+///////////////////////////////////////////////////////////
+// Before
+use common_dep; // 1.2.3
+pub fn foo(x: &str) {}
+pub fn bar(x: common_dep::Type) {}
+
+///////////////////////////////////////////////////////////
+// After
+use common_dep; // 2.0.0
+pub fn foo(x: String) {}
+pub fn bar(x: common_dep::Type) {}
+
+///////////////////////////////////////////////////////////
+// Example usage that will break.
+use common_dep; // 1.3.5
+fn main() {
+    updated_crate::foo("hello"); // Error: expected `String`, found `&str`
+    updated_crate::bar(common_dep::Type::new()); // Error: expected `common_dep::Type`, found a different `common_dep::Type`
+}
+```
+
+Mitigating strategies:
+* Introduce a new function with the new signature and possibly
+  [deprecate][deprecated] the old one.
+* If the new type can be created from the old type, consider taking
+  an `impl Into<NewType>` instead.
+* If the old and new types implement a common trait defining the,
+  necessary behavior consider taking an [`impl CommonTrait`](fn-generalize-compatible) instead.
+  
 
 ### Possibly-breaking: introducing a new function type parameter {#fn-generic-new}
 
